@@ -1,8 +1,7 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
+import { HardhatUserConfig } from 'hardhat/config';
+import '@nomicfoundation/hardhat-toolbox';
+import 'hardhat-cannon';
 
-const config: HardhatUserConfig = {
-  solidity: "0.8.19",
-};
-
-export default config;
+export default {
+  solidity: '0.8.19',
+} satisfies HardhatUserConfig;

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { CannonWrapperGenericProvider } from '@usecannon/builder';
+import { CannonJsonRpcProvider, CannonWrapperGenericProvider } from '@usecannon/builder';
 import { build, createDryRunRegistry, loadCannonfile, parseSettings, resolveCliSettings, runRpc } from '@usecannon/cli';
 import { getProvider } from '@usecannon/cli/dist/src/rpc';
 import { pickAnvilOptions } from '@usecannon/cli/dist/src/util/anvil';
@@ -14,7 +14,6 @@ import { loadPackageJson } from '../internal/load-pkg-json';
 import { SUBTASK_GET_ARTIFACT, TASK_BUILD } from '../task-names';
 
 import type { ethers } from 'ethers';
-
 task(TASK_BUILD, 'Assemble a defined chain and save it to to a state which can be used later')
   .addPositionalParam('cannonfile', 'Path to a cannonfile to build', 'cannonfile.toml')
   .addOptionalVariadicPositionalParam('settings', 'Custom settings for building the cannonfile', [])
@@ -77,7 +76,7 @@ task(TASK_BUILD, 'Assemble a defined chain and save it to to a state which can b
       let anvilOpts;
       if (anvilOptions) {
         if ((anvilOptions as string).endsWith('.json')) {
-          anvilOpts = JSON.parse(await fs.readFileSync(anvilOptions, 'utf8'));
+          anvilOpts = JSON.parse(await fs.readFile(anvilOptions, 'utf8'));
         } else {
           anvilOpts = JSON.parse(anvilOptions);
         }
@@ -88,7 +87,7 @@ task(TASK_BUILD, 'Assemble a defined chain and save it to to a state which can b
 
       const providerUrl = (hre.network.config as HttpNetworkConfig).url;
 
-      let provider = new CannonWrapperGenericProvider({}, new (hre as any).ethers.providers.JsonRpcProvider(providerUrl));
+      let provider: CannonWrapperGenericProvider;
 
       if (hre.network.name === 'hardhat') {
         if (dryRun) {
@@ -99,6 +98,8 @@ task(TASK_BUILD, 'Assemble a defined chain and save it to to a state which can b
         // but really you can't use it like that.
         console.log('using hardhat network provider');
         provider = new CannonWrapperGenericProvider({}, (hre as any).ethers.provider, false);
+      } else {
+        provider = new CannonJsonRpcProvider({}, providerUrl);
       }
 
       if (dryRun || hre.network.name === 'cannon') {
@@ -111,7 +112,7 @@ task(TASK_BUILD, 'Assemble a defined chain and save it to to a state which can b
                 ...anvilOpts,
               },
               {
-                forkProvider: new (hre as any).ethers.providers.JsonRpcProvider(providerUrl),
+                forkProvider: new CannonJsonRpcProvider({}, providerUrl) as any,
               }
             )
           : await runRpc({

@@ -1,16 +1,12 @@
 import { ChainArtifacts, handleTxnError } from '@usecannon/builder';
-import { BackwardsCompatibilityProviderAdapter } from 'hardhat/internal/core/providers/backwards-compatibility';
-import { createProvider } from 'hardhat/internal/core/providers/construction';
 import { ProviderWrapper } from 'hardhat/internal/core/providers/wrapper';
 import { EthereumProvider, HardhatRuntimeEnvironment, RequestArguments } from 'hardhat/types';
 
-import type { ethers } from 'ethers';
-
 class CannonWrapperProvider extends ProviderWrapper {
   artifacts: ChainArtifacts;
-  Web3Provider: ethers.providers.Web3Provider;
+  Web3Provider: any;
 
-  constructor(provider: EthereumProvider, artifacts: ChainArtifacts, Web3Provider: ethers.providers.Web3Provider) {
+  constructor(provider: EthereumProvider, artifacts: ChainArtifacts, Web3Provider: any) {
     super(provider);
     this.artifacts = artifacts;
     this.Web3Provider = Web3Provider;
@@ -27,19 +23,23 @@ class CannonWrapperProvider extends ProviderWrapper {
 }
 
 export async function augmentProvider(hre: HardhatRuntimeEnvironment, artifacts: ChainArtifacts = {}) {
-  if (hre.network.name === 'cannon') {
-    const { createProviderProxy } = await import('@nomiclabs/hardhat-ethers/internal/provider-proxy');
+  if (hre.network.name !== 'cannon') return;
 
-    hre.config.networks.cannon.url = `http://127.0.0.1:${hre.config.networks.cannon.port}`;
+  const { createProvider } = await import('hardhat/internal/core/providers/construction');
+  const { BackwardsCompatibilityProviderAdapter } = await import('hardhat/internal/core/providers/backwards-compatibility');
 
-    const baseProvider = await createProvider(hre.config, hre.network.name, hre.artifacts);
+  hre.config.networks.cannon.url = `http://127.0.0.1:${hre.config.networks.cannon.port}`;
 
-    const cannonProvider = new CannonWrapperProvider(baseProvider, artifacts, (hre as any).ethers.providers.Web3Provider);
+  const baseProvider = await createProvider(hre.config, hre.network.name, hre.artifacts);
 
-    hre.network.provider = new BackwardsCompatibilityProviderAdapter(cannonProvider);
+  const cannonProvider = new CannonWrapperProvider(baseProvider, artifacts, (hre as any).ethers.providers.Web3Provider);
 
+  hre.network.provider = new BackwardsCompatibilityProviderAdapter(cannonProvider);
+
+  if ((hre as any).ethers.version.startsWith('ethers/5.')) {
     // refresh hardhat ethers
     // todo this is hacky but somehow normal for hardhat network extension
+    const { createProviderProxy } = await import('@nomiclabs/hardhat-ethers/internal/provider-proxy');
     (hre as any).ethers.provider = createProviderProxy(hre.network.provider);
   }
 }

@@ -28,6 +28,12 @@ extendConfig((config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) =>
   } as any;
 });
 
-extendEnvironment(async (env: HardhatRuntimeEnvironment) => {
-  await augmentProvider(env);
+extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
+  if (!(hre as any).ethers) {
+    throw new Error(
+      'Missing ethers.js installation. Install it with:\n  npm install --save-dev @nomicfoundation/hardhat-ethers ethers'
+    );
+  }
+
+  await augmentProvider(hre);
 });
