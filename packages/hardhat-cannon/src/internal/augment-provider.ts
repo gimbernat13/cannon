@@ -1,5 +1,6 @@
 import { ChainArtifacts, handleTxnError } from '@usecannon/builder';
 import { ProviderWrapper } from 'hardhat/internal/core/providers/wrapper';
+import { HardhatPluginError } from 'hardhat/plugins';
 import { EthereumProvider, HardhatRuntimeEnvironment, RequestArguments } from 'hardhat/types';
 
 class CannonWrapperProvider extends ProviderWrapper {
@@ -25,21 +26,33 @@ class CannonWrapperProvider extends ProviderWrapper {
 export async function augmentProvider(hre: HardhatRuntimeEnvironment, artifacts: ChainArtifacts = {}) {
   if (hre.network.name !== 'cannon') return;
 
-  const { createProvider } = await import('hardhat/internal/core/providers/construction');
-  const { BackwardsCompatibilityProviderAdapter } = await import('hardhat/internal/core/providers/backwards-compatibility');
+  const ethersVersion = (hre as any).ethers.version;
 
-  hre.config.networks.cannon.url = `http://127.0.0.1:${hre.config.networks.cannon.port}`;
+  if (typeof ethersVersion !== 'string') {
+    throw new HardhatPluginError('hardhat-cannon', 'Could not find ethers.js');
+  }
 
-  const baseProvider = await createProvider(hre.config, hre.network.name, hre.artifacts);
+  if (ethersVersion.startsWith('ethers/5.')) {
+    const { createProvider } = await import('hardhat/internal/core/providers/construction');
+    const { BackwardsCompatibilityProviderAdapter } = await import(
+      'hardhat/internal/core/providers/backwards-compatibility'
+    );
 
-  const cannonProvider = new CannonWrapperProvider(baseProvider, artifacts, (hre as any).ethers.providers.Web3Provider);
+    const baseProvider = await createProvider(hre.config, hre.network.name, hre.artifacts);
+    const cannonProvider = new CannonWrapperProvider(baseProvider, artifacts, (hre as any).ethers.providers.Web3Provider);
 
-  hre.network.provider = new BackwardsCompatibilityProviderAdapter(cannonProvider);
+    hre.network.provider = new BackwardsCompatibilityProviderAdapter(cannonProvider);
 
-  if ((hre as any).ethers.version.startsWith('ethers/5.')) {
     // refresh hardhat ethers
     // todo this is hacky but somehow normal for hardhat network extension
     const { createProviderProxy } = await import('@nomiclabs/hardhat-ethers/internal/provider-proxy');
     (hre as any).ethers.provider = createProviderProxy(hre.network.provider);
+  } else if (ethersVersion.startsWith('6.')) {
+    // On this case we are doing nothing.
+  } else {
+    throw new HardhatPluginError(
+      'hardhat-cannon',
+      `hardhat-cannon is not compatible with your ethers.js version, v5 or v6 is needed. You are using "${ethersVersion}"`
+    );
   }
 }

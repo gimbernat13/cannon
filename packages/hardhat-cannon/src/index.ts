@@ -26,6 +26,10 @@ extendConfig((config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) =>
     ...(userConfig.networks?.cannon || {}),
     chainId: CANNON_CHAIN_ID,
   } as any;
+
+  if (!config.networks.cannon.url) {
+    config.networks.cannon.url = `http://127.0.0.1:${config.networks.cannon.port}`;
+  }
 });
 
 extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
@@ -33,6 +37,10 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
     throw new Error(
       'Missing ethers.js installation. Install it with:\n  npm install --save-dev @nomicfoundation/hardhat-ethers ethers'
     );
+  }
+
+  if (hre.network.name === 'hardhat' && (hre as any).ethers.version.startsWith('6.')) {
+    throw new Error("Cannon is not comptible with ethers v6 + hardhat's network. You can use --network cannon");
   }
 
   await augmentProvider(hre);

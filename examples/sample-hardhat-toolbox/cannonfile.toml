@@ -11,6 +11,6 @@ defaultValue = "604800" # 1 week in seconds
 
 [contract.Lock]
 artifact = "Lock"
-args = ["<%= (Date.now() / 1000) + settings.unlockTime %>"]
+args = ["<%= settings.unlockTime %>"]
 value = "100000000000000000" # 0.1 ETH
 salt = "<%= settings.salt %>"
